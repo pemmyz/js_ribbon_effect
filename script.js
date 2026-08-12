@@ -19,14 +19,14 @@ function init() {
     scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x050508, 0.015);
 
-    // 2. Camera setup
+    // 2. Camera setup - Positioned 2x closer (Z: 12.5) for a 2x zoomed-in view
     camera = new THREE.PerspectiveCamera(
         60, 
         window.innerWidth / window.innerHeight, 
         0.1, 
         1000
     );
-    camera.position.set(0, 0, 25);
+    camera.position.set(0, 0, 12.5);
 
     // 3. Renderer setup
     renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -41,7 +41,7 @@ function init() {
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.maxDistance = 60;
-    controls.minDistance = 5;
+    controls.minDistance = 3;
 
     // 5. Lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
@@ -66,7 +66,7 @@ function init() {
     window.addEventListener('resize', onWindowResize);
 }
 
-// Generate dynamic dynamic scroller text texture using 2D Canvas
+// Generate dynamic scroller text texture using 2D Canvas
 function createTextTexture() {
     const canvas = document.createElement('canvas');
     canvas.width = 2048;
