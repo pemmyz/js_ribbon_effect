@@ -1,6 +1,6 @@
 // Global variables
 let scene, camera, renderer, controls;
-let ribbonMesh, originalPositions;
+let ribbonGroup, frontMesh, backMesh, originalPositions;
 let textTexture;
 let starField;
 const clock = new THREE.Clock();
@@ -19,7 +19,7 @@ function init() {
     scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x050508, 0.015);
 
-    // 2. Camera setup - Positioned 2x closer (Z: 12.5) for a 2x zoomed-in view
+    // 2. Camera setup - Positioned for optimal zoomed-in view
     camera = new THREE.PerspectiveCamera(
         60, 
         window.innerWidth / window.innerHeight, 
@@ -105,10 +105,12 @@ function createTextTexture() {
     return texture;
 }
 
-// Create ribbon mesh
+// Create dual-sided readable ribbon mesh
 function createRibbon() {
-    // Plane geometry along the X-axis
-    const geometry = new THREE.PlaneGeometry(
+    ribbonGroup = new THREE.Group();
+
+    // 1. Base Front Geometry
+    const geometryFront = new THREE.PlaneGeometry(
         ribbonLength, 
         ribbonWidth, 
         lengthSegments, 
@@ -116,19 +118,41 @@ function createRibbon() {
     );
 
     // Save a copy of initial vertex coordinates
-    originalPositions = geometry.attributes.position.clone();
+    originalPositions = geometryFront.attributes.position.clone();
 
-    // Material setup
-    const material = new THREE.MeshStandardMaterial({
+    const materialFront = new THREE.MeshStandardMaterial({
         map: textTexture,
-        side: THREE.DoubleSide,
+        side: THREE.FrontSide,
         roughness: 0.2,
-        metalness: 0.8,
-        wireframe: false
+        metalness: 0.8
     });
 
-    ribbonMesh = new THREE.Mesh(geometry, material);
-    scene.add(ribbonMesh);
+    frontMesh = new THREE.Mesh(geometryFront, materialFront);
+
+    // 2. Base Back Geometry (Invert V coordinate to fix X-axis rotation mirroring)
+    const geometryBack = geometryFront.clone();
+    const uvAttr = geometryBack.attributes.uv;
+
+    // Flip vertical UV coordinate (V = 1 - V) to account for X-axis ribbon twist
+    for (let i = 0; i < uvAttr.count; i++) {
+        uvAttr.setY(i, 1 - uvAttr.getY(i));
+    }
+    uvAttr.needsUpdate = true;
+
+    const materialBack = new THREE.MeshStandardMaterial({
+        map: textTexture,
+        side: THREE.BackSide,
+        roughness: 0.2,
+        metalness: 0.8
+    });
+
+    backMesh = new THREE.Mesh(geometryBack, materialBack);
+
+    // Add both faces to group
+    ribbonGroup.add(frontMesh);
+    ribbonGroup.add(backMesh);
+
+    scene.add(ribbonGroup);
 }
 
 // Create background particle starfield
@@ -168,7 +192,7 @@ function animate() {
 
     const elapsedTime = clock.getElapsedTime();
 
-    // Update ribbon vertex math
+    // Update ribbon vertex math for both front and back sides
     updateRibbonGeometry(elapsedTime);
 
     // Scroll text texture continuously
@@ -189,41 +213,45 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-// Core math algorithm for deform + twist
+// Core math algorithm for deform + twist (applied to both front and back meshes)
 function updateRibbonGeometry(time) {
-    const positionAttribute = ribbonMesh.geometry.attributes.position;
     const orig = originalPositions;
 
-    for (let i = 0; i < positionAttribute.count; i++) {
-        // Fetch base grid position
-        const x0 = orig.getX(i);
-        const y0 = orig.getY(i);
+    // Apply exact same deformation math to both front and back face geometries
+    [frontMesh.geometry, backMesh.geometry].forEach(geometry => {
+        const positionAttribute = geometry.attributes.position;
 
-        // 1. Calculate Ribbon Spine Path (Waves)
-        const spineY = Math.sin(x0 * 0.3 + time * 2.0) * 3.0 + 
-                       Math.cos(x0 * 0.15 + time * 1.2) * 1.5;
+        for (let i = 0; i < positionAttribute.count; i++) {
+            // Fetch base grid position
+            const x0 = orig.getX(i);
+            const y0 = orig.getY(i);
 
-        const spineZ = Math.cos(x0 * 0.25 + time * 1.8) * 4.0;
+            // 1. Calculate Ribbon Spine Path (Waves)
+            const spineY = Math.sin(x0 * 0.3 + time * 2.0) * 3.0 + 
+                           Math.cos(x0 * 0.15 + time * 1.2) * 1.5;
 
-        // 2. Calculate Ribbon Twist Angle along length
-        const twistAngle = x0 * 0.4 + time * 2.5;
+            const spineZ = Math.cos(x0 * 0.25 + time * 1.8) * 4.0;
 
-        // 3. Rotate vertex offset (y0) around the spine in YZ plane
-        const dy = y0 * Math.cos(twistAngle);
-        const dz = y0 * Math.sin(twistAngle);
+            // 2. Calculate Ribbon Twist Angle along length
+            const twistAngle = x0 * 0.4 + time * 2.5;
 
-        // 4. Set dynamic vertex coordinates
-        positionAttribute.setXYZ(
-            i, 
-            x0, 
-            spineY + dy, 
-            spineZ + dz
-        );
-    }
+            // 3. Rotate vertex offset (y0) around the spine in YZ plane
+            const dy = y0 * Math.cos(twistAngle);
+            const dz = y0 * Math.sin(twistAngle);
 
-    // Notify Three.js to update geometry buffers & recalculate light reflection normals
-    positionAttribute.needsUpdate = true;
-    ribbonMesh.geometry.computeVertexNormals();
+            // 4. Set dynamic vertex coordinates
+            positionAttribute.setXYZ(
+                i, 
+                x0, 
+                spineY + dy, 
+                spineZ + dz
+            );
+        }
+
+        // Notify Three.js to update geometry buffers & recalculate light reflection normals
+        positionAttribute.needsUpdate = true;
+        geometry.computeVertexNormals();
+    });
 }
 
 // Window resize handler
