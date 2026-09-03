@@ -428,11 +428,13 @@ The visual style is inspired by classic **Amiga and PC demoscene scrollers**, pa
 
 The implementation uses modern WebGL through Three.js while recreating the visual spirit of those classic effects.
 
+---
+
 ## License
 
-No license is specified by the original project code.
+MIT License – free to use, modify, and redistribute.
 
-If you publish or redistribute this project, add an appropriate license file and update this section accordingly.
+---
 
 ## Author / Credits
 
