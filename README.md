@@ -6,6 +6,8 @@ A retro-inspired **3D demoscene ribbon scroller effect** built with [Three.js](h
 
 The scene also includes a colorful particle starfield, fog, neon lighting, metallic materials, and interactive camera controls.
 
+## Play it now: https://pemmyz.github.io/js_ribbon_effect/
+
 ## Features
 
 - **3D twisting ribbon**
